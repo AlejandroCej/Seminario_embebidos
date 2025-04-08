@@ -17,22 +17,22 @@
 #define SEG_F 16
 #define SEG_G 17
 
-#define CATODO_UNIDADES 8
+#define CATODO_UNIDADES 12
 #define CATODO_DECENAS 9
-#define CATODO_CENTENAS 12
+#define CATODO_CENTENAS 8
 
 // Pines del teclado matricial
-#define COL_1 35
-#define COL_2 36
-#define COL_3 37
-#define COL_4 38
-#define FIL_1 39
-#define FIL_2 40
-#define FIL_3 41
-#define FIL_4 42
+#define COL_1 38
+#define COL_2 37
+#define COL_3 36
+#define COL_4 35
+#define FIL_1 42
+#define FIL_2 41
+#define FIL_3 40
+#define FIL_4 39
 
 // Pin del sensor LM35
-#define LM35_ADC_CHANNEL ADC_CHANNEL_2  // GPIO 2
+#define LM35_ADC_CHANNEL ADC_CHANNEL_9  // GPIO 2
 
 // Variables globales
 volatile float temperatura = 0.0;  // Temperatura actual
@@ -89,6 +89,7 @@ float leerTemperatura() {
     int raw = adc1_get_raw(LM35_ADC_CHANNEL);
     float voltaje = (raw * 3.3) / 4095.0;  // Convertir a voltaje
     return voltaje * 100.0;  // LM35: 10mV/°C
+    vTaskDelay(pdMS_TO_TICKS(100));  // Esperar un poco antes de la siguiente lectura
 }
 
 // Decodificar y mostrar un número en los displays
@@ -115,7 +116,7 @@ void mostrarNumero(int numero) {
         gpio_set_level(SEG_G, segmentos & 0x40);
 
         // Esperar un breve tiempo para multiplexar
-        vTaskDelay(pdMS_TO_TICKS(5));
+        vTaskDelay(pdMS_TO_TICKS(15));
 
         // Apagar el catodo
         gpio_set_level(pinesCatodos[i], 0);
@@ -176,10 +177,7 @@ void task_manejar_teclas(void *pvParameters) {
 
 // Configuración inicial
 void app_main() {
-    // Disable the task watchdog timer
     esp_task_wdt_deinit();
-
-    // Your existing initialization code
     configurarGPIO();
 
     // Configurar ADC para el LM35
