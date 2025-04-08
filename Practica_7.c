@@ -7,6 +7,7 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_task_wdt.h"
+#include "driver/timer.h"
 
 // Pines de los displays de 7 segmentos
 #define SEG_A 4
@@ -33,6 +34,11 @@
 
 // Pin del sensor LM35
 #define LM35_ADC_CHANNEL ADC_CHANNEL_9  // GPIO 2
+
+// Pin del LED Alarma
+#define LED_ALARMA 21
+
+float tempo = 0.0; // Variable para almacenar la temperatura actual
 
 // Variables globales
 volatile float temperatura = 0.0;  // Temperatura actual
@@ -82,6 +88,11 @@ void configurarGPIO() {
         gpio_set_direction(filas[i], GPIO_MODE_INPUT);
         gpio_set_pull_mode(filas[i], GPIO_PULLUP_ONLY);
     }
+
+    // Configurar el pin del LED como salida
+    gpio_reset_pin(LED_ALARMA);
+    gpio_set_direction(LED_ALARMA, GPIO_MODE_OUTPUT);
+    gpio_set_level(LED_ALARMA, 0);  // Inicialmente apagado
 }
 
 // Leer el valor del LM35 y convertirlo a temperatura
@@ -158,6 +169,7 @@ void task_temperatura(void *pvParameters) {
         temperatura = leerTemperatura();  // Leer temperatura del LM35
         int tempMostrar = (int)(mostrarCelsius ? temperatura : (temperatura * 9.0 / 5.0) + 32.0);
         mostrarNumero(tempMostrar);  // Mostrar temperatura en el display
+        tempo = tempMostrar;  // Guardar temperatura para la alarma
     }
 }
 
@@ -175,6 +187,18 @@ void task_manejar_teclas(void *pvParameters) {
     }
 }
 
+void task_alarma(void *pvParameters) {
+    while (1) {
+        int limiteTemperatura = mostrarCelsius ? 37 : 98.6;  // Limite de temperatura en Celsius o Fahrenheit
+        if (tempo > limiteTemperatura) {
+            gpio_set_level(LED_ALARMA, 1);  // Encender LED de alarma si la temperatura es alta
+        } else {
+            gpio_set_level(LED_ALARMA, 0);  // Apagar LED de alarma si la temperatura es normal
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));  // Esperar un segundo antes de verificar nuevamente
+    }
+}
+
 // Configuración inicial
 void app_main() {
     esp_task_wdt_deinit();
@@ -187,8 +211,18 @@ void app_main() {
     // Crear cola para el teclado
     colaTeclado = xQueueCreate(10, sizeof(char));
 
+    //Para el LED de alarma
+    gpio_reset_pin(LED_ALARMA);
+    gpio_set_direction(LED_ALARMA, GPIO_MODE_OUTPUT);
+    if(tempo > 37.0) {
+        gpio_set_level(LED_ALARMA, 1);  // Encender LED de alarma si la temperatura es alta
+    } else {
+        gpio_set_level(LED_ALARMA, 0);  // Apagar LED de alarma si la temperatura es normal
+    }
+
     // Crear tareas
     xTaskCreate(task_teclado, "Teclado", 2048, NULL, 1, NULL);
     xTaskCreate(task_temperatura, "Temperatura", 2048, NULL, 1, NULL);
     xTaskCreate(task_manejar_teclas, "ManejarTeclas", 2048, NULL, 1, NULL);
+    xTaskCreate(task_alarma, "Alarma", 2048, NULL, 1, NULL);
 }
