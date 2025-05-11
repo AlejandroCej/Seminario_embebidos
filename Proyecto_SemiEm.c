@@ -183,17 +183,17 @@ void LeerFechaHora(void *pvParameters) {
         uint8_t h, m, s, d, mo, y;
         read_ds3231(&h, &m, &s, &d, &mo, &y);
 
-        // Update the display buffer
+        // Actualizar el display
         MostrarHoraFecha();
 
-        // Print the current time or date to the serial monitor
+        // Mostrar en consola
         if (show_time) {
             printf("Current Time: %02d:%02d:%02d\n", h, m, s);
         } else {
             printf("Current Date: %02d/%02d/%02d\n", d, mo, y);
         }
 
-        vTaskDelay(pdMS_TO_TICKS(500)); // Delay for 500ms
+        vTaskDelay(pdMS_TO_TICKS(500)); // Delay de 500 ms para no saturar el I2C
     }
 }
 
