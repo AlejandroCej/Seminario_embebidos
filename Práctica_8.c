@@ -2,15 +2,17 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
+#include "esp_task_wdt.h"
+
 
 // Pins de los segmentos de los displays
-const gpio_num_t segment_pins[7] = {4, 5, 6, 7, 15, 16, 17};
+const gpio_num_t DisplayPins[7] = {4, 5, 6, 7, 15, 16, 17};
 
 // Pins de los transistores de los displays
-const gpio_num_t digit_pins[6] = {36, 48, 21, 8, 9, 12};
+const gpio_num_t TransPins[6] = {36, 48, 21, 8, 9, 12};
 
 // Codificación de los caracteres a mostrar en el display 7 segmentos
-const uint8_t display_chars[6] = {
+const uint8_t Letras[6] = {
     0x1E, // J
     0x79, // E
     0x6D, // S
@@ -31,40 +33,41 @@ void init_gpio()
 
     // Para configurar los pines de los segmentos
     for (int i = 0; i < 7; i++)
-        io_conf.pin_bit_mask |= (1ULL << segment_pins[i]);
+        io_conf.pin_bit_mask |= (1ULL << DisplayPins[i]);
 
     // Para configurar los pines de los transistores
     for (int i = 0; i < 6; i++)
-        io_conf.pin_bit_mask |= (1ULL << digit_pins[i]);
+        io_conf.pin_bit_mask |= (1ULL << TransPins[i]);
 
     gpio_config(&io_conf);
 }
 
 // Para decodificar el valor hexadecimal a los segmentos del display
-void set_segments(uint8_t hex_value)
+void DecodificaSegmentos(uint8_t hex_value)
 {
     for (int i = 0; i < 7; i++) {
         // Extract each bit from the hex value and set the corresponding segment
-        gpio_set_level(segment_pins[i], (hex_value >> i) & 0x01);
+        gpio_set_level(DisplayPins[i], (hex_value >> i) & 0x01);
     }
 }
 
-// Para cuando el transistor está apagado (HIGH)
-void disable_all_digits()
+// Para el multiplexado de los displays
+// Se apagan todos los transistores
+void MultiPins()
 {
     for (int i = 0; i < 6; i++) {
-        gpio_set_level(digit_pins[i], 0);
+        gpio_set_level(TransPins[i], 0);
     }
 }
 
-// Multiplexado y visualización de los caracteres en el display
-void display_task(void *pvParameters)
+// Visualización de los caracteres en el display
+void MostrarNumero(void *pvParameters)
 {
     while (1) {
         for (int i = 0; i < 6; i++) {
-            disable_all_digits();
-            set_segments(display_chars[i]);
-            gpio_set_level(digit_pins[i], 1);
+            MultiPins();
+            DecodificaSegmentos(Letras[i]);
+            gpio_set_level(TransPins[i], 1);
             vTaskDelay(pdMS_TO_TICKS(5));     // El delay para el multiplexado
         }
     }
@@ -72,6 +75,7 @@ void display_task(void *pvParameters)
 
 void app_main(void)
 {
+    esp_task_wdt_deinit(); // Delete the watchdog for this task
     init_gpio();
-    xTaskCreate(display_task, "display_task", 2048, NULL, 5, NULL);
+    xTaskCreate(MostrarNumero, "MostrarNumero", 2048, NULL, 5, NULL);
 }
